@@ -1,6 +1,6 @@
 # Survey app
 
-Backend coding asignment made in Vue 3.
+Backend coding asignment made in Laravel 9.
 
 ## Technologies used
 
