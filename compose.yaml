@@ -1,0 +1,97 @@
+# Volumes
+
+volumes:
+    mariadb:
+        driver: local
+
+# Networks
+
+networks:
+    survey-app:
+        driver: bridge
+
+# Configs
+
+configs:
+    php:
+        file: ./docker/php/local.ini
+    nginx:
+        file: ./docker/nginx/conf.d
+
+# Services
+
+services:
+
+    # PHP-FPM
+
+    php:
+        build:
+            context: ./docker
+            args:
+                LINUX_USER_ID: $DOCKER_LINUX_USER_ID
+                LINUX_USER: $DOCKER_LINUX_USER
+                LINUX_PASSWORD: $DOCKER_LINUX_PASSWORD
+        container_name: survey-app-php
+        working_dir: $DOCKER_WORKDIR
+        restart: unless-stopped
+        tty: true
+        volumes:
+            - ./:$DOCKER_WORKDIR
+        configs:
+            - source: php
+              target: /usr/local/etc/php/conf.d/local.ini
+        networks:
+            - survey-app
+        ports:
+            - "9000:9000"
+            - "5173:5173"
+        user: $DOCKER_LINUX_USER
+
+    # NGINX
+
+    nginx:
+        image: nginx
+        container_name: survey-app-nginx
+        restart: unless-stopped
+        tty: true
+        volumes:
+            - ./:$DOCKER_WORKDIR
+        configs:
+            - source: nginx
+              target: /etc/nginx/conf.d
+        networks:
+            - survey-app
+        ports:
+            - "80:80"
+        depends_on:
+            - php
+        healthcheck:
+            test: [ "CMD", "service", "nginx", "status" ]
+            retries: 3
+            timeout: 5s
+            interval: 60s
+
+    # MariaDB
+
+    mariadb:
+        image: mariadb
+        container_name: survey-app-mariadb
+        restart: unless-stopped
+        tty: true
+        environment:
+            MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
+            MARIADB_DATABASE: ${DB_DATABASE}
+            MARIADB_USER: ${DB_USERNAME}
+            MARIADB_PASSWORD: ${DB_PASSWORD}
+            MARIADB_ALLOW_EMPTY_PASSWORD: 'yes'
+        volumes:
+            - mariadb:/var/lib/mysql
+        networks:
+            - survey-app
+        ports:
+            - "3306:3306"
+        healthcheck:
+            test: [ "CMD", "mysqladmin", "ping", "-p${DB_PASSWORD}" ]
+            retries: 3
+            timeout: 5s
+            interval: 60s
